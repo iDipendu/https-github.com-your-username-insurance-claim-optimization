@@ -1,0 +1,21 @@
+library(CVXR)
+
+# Variables and parameters
+x <- Variable(n)        # optimization variable (e.g., age, BMI etc.)
+a <- ...                # logistic coefficients from model
+b <- ...                # intercept
+c <- ...                # profit weights
+d <- ...                # base profit
+
+# Objective function: maximize expected profit
+profit <- (t(c) %*% x + d) * (1 / (1 + exp(t(a) %*% x + b)))
+
+# Constraints
+constraints <- list(F %*% x <= g)
+
+# Problem
+prob <- Problem(Maximize(profit), constraints)
+result <- solve(prob)
+
+# Optimal profile
+optimal_x <- result$getValue(x)
