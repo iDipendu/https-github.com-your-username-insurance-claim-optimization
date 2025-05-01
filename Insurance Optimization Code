@@ -1,0 +1,51 @@
+# Load necessary libraries
+library(tidyverse)
+library(CVXR)
+library(caret)
+
+# Load and preprocess data
+insurance <- read.csv("https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv")
+
+# Encode categorical variables
+insurance <- insurance %>%
+  mutate(
+    sex = ifelse(sex == "male", 1, 0),
+    smoker = ifelse(smoker == "yes", 1, 0),
+    region = factor(region)
+  )
+insurance <- cbind(insurance, model.matrix(~ region - 1, data = insurance))
+
+# Create response and predictor variables
+x_vars <- c("age", "bmi", "children", "sex", "smoker",
+            "regionnortheast", "regionnorthwest", "regionsoutheast", "regionsouthwest")
+x <- scale(insurance[, x_vars])
+y <- ifelse(insurance$charges > 15000, 1, 0)  # approximate 'claim' if charges are high
+
+# Logistic Regression Coefficients
+model <- glm(y ~ ., data = as.data.frame(x), family = binomial)
+a <- coef(model)[-1]  # exclude intercept
+b <- coef(model)[1]
+
+# Convert to matrix
+A <- as.matrix(x)
+
+# Convex optimization: Maximize expected profit
+n <- ncol(A)
+x_var <- Variable(n)
+c <- rep(1, n)  # dummy profit weights
+d <- 10
+
+# Objective: maximize (c^T x + d) * (1 / (1 + exp(a^T x + b)))
+p <- (t(c) %*% x_var + d) * (1 / (1 + exp(sum(a * x_var) + b)))
+objective <- Maximize(p)
+
+# Constraints: keep values reasonable
+constraints <- list(x_var >= -2, x_var <= 2)  # scaled limits
+
+# Problem definition and solving
+problem <- Problem(objective, constraints)
+result <- solve(problem)
+
+# Output result
+result$value
+result$getValue(x_var)
